@@ -1,9 +1,12 @@
-use async_graphql::{EmptyMutation, EmptySubscription, Schema};
+use async_graphql::{dataloader::DataLoader, EmptySubscription, Schema};
 use sqlx::{Pool, Postgres};
 
 use crate::{
     config::Config,
-    graphql::{query::Query, AppSchema},
+    graphql::{
+        dataloader::{PostsLoader, UsersLoader},
+        AppSchema, Mutation, Query,
+    },
 };
 
 #[derive(Clone)]
@@ -16,8 +19,20 @@ pub struct AppState {
 impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let db_pool = sqlx::postgres::PgPool::connect(&config.db_url).await?;
-        let schema = Schema::build(Query, EmptyMutation, EmptySubscription)
-            .data(db_pool.clone())
+        let schema = Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+            .data(DataLoader::new(
+                PostsLoader {
+                    db_pool: db_pool.clone(),
+                },
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                UsersLoader {
+                    db_pool: db_pool.clone(),
+                },
+                tokio::spawn,
+            ))
+            .data(config.clone())
             .finish();
 
         Ok(Self {

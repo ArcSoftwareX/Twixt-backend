@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 
 // User
 
+pub type UserId = uuid::Uuid;
+
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct User {
-    pub id: uuid::Uuid,
+    pub id: UserId,
     pub username: String,
     pub name: String,
     pub email: String,
@@ -16,7 +18,7 @@ pub struct User {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug, Clone)]
 pub struct FilteredUser {
     pub id: String,
     pub username: String,
@@ -51,5 +53,5 @@ pub struct LoginUserSchema {
 // JWT
 
 pub struct JwtMiddleware {
-    pub user_id: uuid::Uuid,
+    pub user_id: UserId,
 }

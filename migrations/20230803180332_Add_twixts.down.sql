@@ -1,3 +1,5 @@
 -- Add down migration script here
-DROP TABLE retwixts;
-DROP TABLE twixts;
+DROp TABLE likes;
+DROP TABLE replies;
+DROP TABLE reposts;
+DROP TABLE posts;

@@ -1,8 +1,6 @@
 -- Add up migration script here
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-CREATE TABLE "users" (
-    id UUID PRIMARY KEY DEFAULT (uuid_generate_v4()),
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT (gen_random_uuid()),
     username VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,

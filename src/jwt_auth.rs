@@ -31,23 +31,30 @@ impl FromRequest for JwtMiddleware {
             })));
         }
 
-        let claims = match decode::<TokenClaims>(
-            &token.unwrap(),
-            &DecodingKey::from_secret(app_state.config.jwt_secret.as_ref()),
-            &Validation::default(),
-        ) {
-            Ok(c) => c.claims,
-            Err(_) => {
-                return ready(Err(ErrorUnauthorized(ErrorResponse {
-                    message: "Invalid token provided".to_string(),
-                })))
-            }
-        };
+        let user_id = validate_token(token.unwrap(), &app_state.config.jwt_secret);
 
-        let user_id = uuid::Uuid::parse_str(claims.sub.as_str()).unwrap();
+        if user_id.is_err() {
+            return ready(Err(ErrorUnauthorized(ErrorResponse {
+                message: "Invalid token provided".to_string(),
+            })));
+        }
+
+        let user_id = user_id.unwrap();
+
         req.extensions_mut()
             .insert::<uuid::Uuid>(user_id.to_owned());
 
         ready(Ok(JwtMiddleware { user_id }))
     }
+}
+
+pub fn validate_token(token: String, secret: &String) -> anyhow::Result<uuid::Uuid> {
+    let claims = decode::<TokenClaims>(
+        &token,
+        &DecodingKey::from_secret(secret.as_ref()),
+        &Validation::default(),
+    )?
+    .claims;
+
+    Ok(uuid::Uuid::parse_str(claims.sub.as_str())?)
 }
