@@ -5,37 +5,12 @@ use sqlx::{Pool, Postgres};
 
 use crate::model::{
     auth::{User, UserId},
-    post::{FilteredPost, Post, PostId},
+    post::{FilteredPost, Post, PostId, UserToPost, UserToPostAction},
 };
-
-use super::post::Like;
 
 #[derive(Debug)]
 pub struct PostsLoader {
     pub db_pool: Pool<Postgres>,
-}
-
-// Load by username
-
-#[async_trait::async_trait]
-impl Loader<String> for PostsLoader {
-    type Value = User;
-    type Error = Arc<sqlx::Error>;
-
-    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
-        println!("executing load by username: {keys:?}");
-
-        let res: Vec<User> = sqlx::query_as("SELECT * FROM users WHERE username = ANY ($1)")
-            .bind(keys)
-            .fetch_all(&self.db_pool)
-            .await?;
-        let res = res.iter().cloned().fold(HashMap::new(), |mut acc, x| {
-            acc.insert(x.username.clone(), x);
-            acc
-        });
-
-        Ok(res)
-    }
 }
 
 #[async_trait::async_trait]
@@ -88,15 +63,13 @@ impl Loader<HasLikeInput> for PostsLoader {
         &self,
         keys: &[HasLikeInput],
     ) -> Result<HashMap<HasLikeInput, Self::Value>, Self::Error> {
-        let res = sqlx::query_as!(
-            Like,
-            "SELECT * FROM likes WHERE user_id = ANY ($1) AND post_id = ANY ($2)",
-            &keys
-                .iter()
-                .map(|val| val.user_id.to_owned())
-                .collect::<Vec<UserId>>(),
-            &keys.iter().map(|val| val.post_id).collect::<Vec<PostId>>()
-        )
+        let res: Vec<UserToPost> = sqlx::query_as(
+            "SELECT * FROM user_post WHERE user_id = ANY ($1) AND post_id = ANY ($2) AND action = $3",
+        
+        ).bind(&keys
+            .iter()
+            .map(|val| val.user_id.to_owned())
+            .collect::<Vec<UserId>>()).bind(&keys.iter().map(|val| val.post_id).collect::<Vec<PostId>>()).bind(UserToPostAction::Like)
         .fetch_all(&self.db_pool)
         .await?;
 
@@ -143,6 +116,29 @@ impl Loader<UserId> for UsersLoader {
 
         let res = res.iter().cloned().fold(HashMap::new(), |mut acc, x| {
             acc.insert(x.id, x);
+            acc
+        });
+
+        Ok(res)
+    }
+}
+
+// Load by username
+
+#[async_trait::async_trait]
+impl Loader<String> for UsersLoader {
+    type Value = User;
+    type Error = Arc<sqlx::Error>;
+
+    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
+        println!("executing load by username: {keys:?}");
+
+        let res: Vec<User> = sqlx::query_as("SELECT * FROM users WHERE username = ANY ($1)")
+            .bind(keys)
+            .fetch_all(&self.db_pool)
+            .await?;
+        let res = res.iter().cloned().fold(HashMap::new(), |mut acc, x| {
+            acc.insert(x.username.clone(), x);
             acc
         });
 

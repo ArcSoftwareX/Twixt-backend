@@ -1,5 +1,8 @@
-use async_graphql::{dataloader::DataLoader, ComplexObject, Context, Result, SimpleObject};
+use async_graphql::{
+    dataloader::DataLoader, ComplexObject, Context, Enum, InputObject, Result, SimpleObject,
+};
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 
 use crate::graphql::dataloader::{HasLikeInput, PostsLoader, UsersLoader};
 
@@ -67,6 +70,48 @@ impl FilteredPost {
             })
             .await?;
 
-        Ok(res.is_some() && res.unwrap() == self.id)
+        Ok(res.is_some())
     }
+}
+
+#[derive(sqlx::Type, Serialize)]
+#[sqlx(type_name = "user_user_action", rename_all = "lowercase")]
+pub enum UserToUserAction {
+    Follow,
+    Mute,
+    Block,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct UserToUser {
+    pub from_user_id: UserId,
+    pub to_user_id: UserId,
+    pub action: UserToUserAction,
+}
+
+#[derive(sqlx::Type, Serialize, Debug)]
+#[sqlx(type_name = "user_post_action", rename_all = "lowercase")]
+pub enum UserToPostAction {
+    Like,
+    Reply,
+}
+
+#[derive(Serialize, sqlx::FromRow, Debug)]
+pub struct UserToPost {
+    pub user_id: UserId,
+    pub post_id: PostId,
+    pub action: UserToPostAction,
+}
+
+#[derive(InputObject)]
+pub struct PostInput {
+    pub content: String,
+    pub image_links: Option<Vec<String>>,
+    pub video_links: Option<Vec<String>>,
+}
+
+#[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]
+pub enum PostAction {
+    Like,
+    RemoveLike,
 }

@@ -18,7 +18,7 @@ pub struct User {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(SimpleObject, Debug, Clone)]
+#[derive(SimpleObject, Debug, Clone, Serialize)]
 pub struct FilteredUser {
     pub id: String,
     pub username: String,

@@ -8,13 +8,14 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
 
-use crate::model::{
-    auth::{JwtMiddleware, LoginUserSchema, RegisterUserSchema, TokenClaims, User},
-    state::AppState,
+use crate::{
+    jwt_auth::generate_token,
+    model::{
+        auth::{FilteredUser, JwtMiddleware, LoginUserSchema, RegisterUserSchema, User},
+        state::AppState,
+    },
 };
 
 #[post("/signup")]
@@ -47,10 +48,31 @@ async fn signup_password(body: Json<RegisterUserSchema>, data: Data<AppState>) -
     .fetch_one(&data.db_pool)
     .await;
 
-    match query_result {
-        Ok(user) => HttpResponse::Ok().json(json!({ "user": user })),
-        Err(e) => HttpResponse::InternalServerError().json(json!({ "message": e.to_string() })),
+    if query_result.is_err() {
+        return HttpResponse::InternalServerError()
+            .json(json!({ "message": query_result.err().unwrap().to_string() }));
     }
+
+    let user = query_result.unwrap();
+
+    let token = generate_token(user.id.to_string(), &data.config.jwt_secret);
+
+    if token.is_err() {
+        return HttpResponse::InternalServerError()
+            .json(json!({ "message": "An internal error occured" }));
+    }
+
+    let token = token.unwrap();
+
+    let cookie = Cookie::build("token", &token)
+        .path("/")
+        .max_age(CookieDuration::new(60 * 60, 0))
+        .http_only(true)
+        .finish();
+
+    HttpResponse::Ok()
+        .cookie(cookie)
+        .json(json!({ "token": token, "message": "Signed up successfully" }))
 }
 
 #[post("/login")]
@@ -78,21 +100,14 @@ async fn login_password(body: Json<LoginUserSchema>, data: Data<AppState>) -> im
 
     let user = query_result.unwrap();
 
-    let now = Utc::now();
-    let iat = now.timestamp() as usize;
-    let exp = (now + Duration::minutes(60)).timestamp() as usize;
-    let claims = TokenClaims {
-        sub: user.id.to_string(),
-        exp,
-        iat,
-    };
+    let token = generate_token(user.id.to_string(), &data.config.jwt_secret);
 
-    let token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(data.config.jwt_secret.as_ref()),
-    )
-    .unwrap();
+    if token.is_err() {
+        return HttpResponse::InternalServerError()
+            .json(json!({ "message": "An internal error occured" }));
+    }
+
+    let token = token.unwrap();
 
     let cookie = Cookie::build("token", token.to_owned())
         .path("/")
@@ -102,7 +117,7 @@ async fn login_password(body: Json<LoginUserSchema>, data: Data<AppState>) -> im
 
     HttpResponse::Ok()
         .cookie(cookie)
-        .json(json!({ "token": token }))
+        .json(json!({ "token": token, "message": "Logged in successfully" }))
 }
 
 #[post("/logout")]
@@ -131,5 +146,13 @@ async fn get_user(data: Data<AppState>, jwt: JwtMiddleware) -> impl Responder {
     .await
     .unwrap();
 
-    HttpResponse::Ok().json(json!({ "user": user }))
+    HttpResponse::Ok().json(FilteredUser {
+        id: user.id.to_string(),
+        email: user.email,
+        name: user.name,
+        username: user.username,
+        created_at: user.created_at.map(|val| val.to_string()),
+        updated_at: user.updated_at.map(|val| val.to_string()),
+        photo: user.photo,
+    })
 }
