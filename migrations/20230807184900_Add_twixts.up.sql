@@ -6,8 +6,7 @@ CREATE TABLE posts (
     CONSTRAINT author FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE CASCADE,
 
     content VARCHAR (300) NOT NULL,
-    image_links VARCHAR (255) array [3],
-    video_links VARCHAR (255) array [2],
+    media_links VARCHAR (255) array [6],
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW (),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW ()

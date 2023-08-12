@@ -10,15 +10,14 @@ use super::auth::{FilteredUser, UserId};
 
 pub type PostId = i64;
 
-#[derive(sqlx::FromRow, Debug, Clone)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize)]
 pub struct Post {
     pub id: PostId,
 
     pub author_id: UserId,
 
     pub content: String,
-    pub image_links: Option<Vec<String>>,
-    pub video_links: Option<Vec<String>>,
+    pub media_links: Option<Vec<String>>,
 
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
@@ -35,8 +34,7 @@ pub struct FilteredPost {
     pub author_uuid: UserId,
 
     pub content: String,
-    pub image_links: Option<Vec<String>>,
-    pub video_links: Option<Vec<String>>,
+    pub media_links: Option<Vec<String>>,
 
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
@@ -106,8 +104,6 @@ pub struct UserToPost {
 #[derive(InputObject)]
 pub struct PostInput {
     pub content: String,
-    pub image_links: Option<Vec<String>>,
-    pub video_links: Option<Vec<String>>,
 }
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]

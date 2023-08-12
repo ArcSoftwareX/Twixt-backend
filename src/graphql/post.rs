@@ -44,8 +44,7 @@ impl PostsQuery {
                 content: val.content.to_owned(),
                 created_at: val.created_at.map(|val| val.to_string()),
                 updated_at: val.updated_at.map(|val| val.to_string()),
-                image_links: val.image_links.clone(),
-                video_links: val.video_links.clone(),
+                media_links: val.media_links.clone(),
             })
             .collect::<Vec<_>>();
 
@@ -66,7 +65,14 @@ impl PostsMutation {
             .loader()
             .db_pool;
 
-        let res = sqlx::query_as!(Post, "INSERT INTO posts (author_id, content, image_links, video_links) VALUES ($1, $2, $3, $4) RETURNING *", user_id, post.content, post.image_links.as_deref(), post.video_links.as_deref()).fetch_one(db_pool).await?;
+        let res = sqlx::query_as!(
+            Post,
+            "INSERT INTO posts (author_id, content) VALUES ($1, $2) RETURNING *",
+            user_id,
+            post.content
+        )
+        .fetch_one(db_pool)
+        .await?;
 
         Ok(FilteredPost {
             id: res.id,
@@ -75,8 +81,7 @@ impl PostsMutation {
             author_uuid: res.author_id,
             created_at: res.created_at.map(|val| val.to_string()),
             updated_at: res.updated_at.map(|val| val.to_string()),
-            image_links: res.image_links,
-            video_links: res.video_links,
+            media_links: res.media_links,
         })
     }
 

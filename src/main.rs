@@ -9,7 +9,9 @@ use config::Config;
 use graphql::handlers::{graphql_index, graphql_playground};
 use handlers::{
     auth::{get_user, login_password, logout, signup_password},
+    file::file_handler,
     health::health,
+    posts::create_post,
 };
 use model::state::AppState;
 
@@ -25,6 +27,7 @@ mod utils;
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().unwrap();
     utils::log_init();
+    utils::storage_init()?;
 
     let config = Config::init().unwrap();
     let app_state = AppState::new(config).await.unwrap();
@@ -39,13 +42,17 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .service(
-                web::scope("/api").service(health).service(
-                    web::scope("/auth")
-                        .service(login_password)
-                        .service(signup_password)
-                        .service(get_user)
-                        .service(logout),
-                ),
+                web::scope("/api")
+                    .service(health)
+                    .service(
+                        web::scope("/auth")
+                            .service(login_password)
+                            .service(signup_password)
+                            .service(get_user)
+                            .service(logout),
+                    )
+                    .service(file_handler)
+                    .service(web::scope("/post").service(create_post)),
             )
             .service(
                 web::scope("/graphql")
